@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HalalTrack - Dashboard B2B</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 p-6 font-sans">
+    <div class="max-w-4xl mx-auto space-y-8">
+        <h1 class="text-3xl font-bold text-slate-800">HalalTrack Dashboard (Proveedor)</h1>
+        
+        <!-- Crear Lote -->
+        <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-emerald-600">
+            <h2 class="text-xl font-semibold mb-4 text-slate-700">1. Registrar Nuevo Lote de Carne/Alimento</h2>
+            <form id="createBatchForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Número de Lote (SKU)</label>
+                        <input type="text" id="batchNumber" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-emerald-500 focus:border-emerald-500" placeholder="Ej: LOTE-2026-001">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Nombre del Producto</label>
+                        <input type="text" id="productName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:ring-emerald-500 focus:border-emerald-500" placeholder="Ej: Carne de Cordero Premium">
+                    </div>
+                </div>
+                <button type="submit" class="bg-emerald-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-emerald-700 transition">Crear Lote en Base de Datos</button>
+            </form>
+            <div id="batchResult" class="mt-4 text-emerald-700 font-bold"></div>
+        </div>
+
+        <!-- Actualizar Estado -->
+        <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-600">
+            <h2 class="text-xl font-semibold mb-4 text-slate-700">2. Escanear y Registrar Punto de Control (Logística)</h2>
+            <form id="createCheckpointForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">ID del Lote (El ID numérico interno)</label>
+                    <input type="number" id="checkpointBatchId" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="Ej: 1">
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Estado Logístico</label>
+                        <select id="checkpointStatus" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border">
+                            <option value="Certificado en Origen (Matadero)">Certificado en Origen (Matadero)</option>
+                            <option value="En Tránsito (Contenedor/Vuelo)">En Tránsito (Contenedor/Vuelo)</option>
+                            <option value="Aprobado en Aduana">Aprobado en Aduana</option>
+                            <option value="Entregado al Restaurante">Entregado al Restaurante</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Ubicación Actual</label>
+                        <input type="text" id="checkpointLocation" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="Ej: Puerto de Buenos Aires">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">ID del Transporte (Opcional - Vuelo/Contenedor)</label>
+                    <input type="text" id="checkpointTransportId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border" placeholder="Ej: MSC-12345 o AR-1133">
+                </div>
+                <button type="submit" class="bg-blue-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-blue-700 transition">Registrar Paso en Trazabilidad</button>
+            </form>
+            <div id="checkpointResult" class="mt-4 text-blue-600 font-bold"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+
+        document.getElementById('createBatchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                batchNumber: document.getElementById('batchNumber').value,
+                productName: document.getElementById('productName').value,
+                companyId: 0,
+                certificateId: 0
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/batches`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                document.getElementById('batchResult').innerText = `✅ ¡Lote creado con éxito! ID interno: ${result.id}. (Usa este ID en el paso 2 para actualizar su estado)`;
+                document.getElementById('checkpointBatchId').value = result.id;
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('batchResult').innerText = `❌ Error al conectar con la API.`;
+            }
+        });
+
+        document.getElementById('createCheckpointForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                batchId: parseInt(document.getElementById('checkpointBatchId').value),
+                status: document.getElementById('checkpointStatus').value,
+                location: document.getElementById('checkpointLocation').value,
+                transportId: document.getElementById('checkpointTransportId').value
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}/checkpoints`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if(response.ok) {
+                    document.getElementById('checkpointResult').innerText = `✅ ¡Punto de control (Checkpoint) guardado correctamente!`;
+                } else {
+                    document.getElementById('checkpointResult').innerText = `❌ Error. Revisa que el ID del lote realmente exista.`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

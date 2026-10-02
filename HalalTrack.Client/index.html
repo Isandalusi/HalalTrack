@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HalalTrack - Verificación Pública</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen">
+    <!-- Contenedor estilo "Celular" (Mobile First) -->
+    <div class="max-w-md mx-auto bg-white min-h-screen shadow-xl">
+        
+        <!-- Header -->
+        <div class="bg-emerald-700 p-8 text-white text-center rounded-b-[40px] shadow-md">
+            <h1 class="text-3xl font-extrabold tracking-wider">HalalTrack<span class="text-emerald-300">.</span></h1>
+            <p class="text-emerald-100 text-sm mt-1 font-medium">Garantía de Trazabilidad y Pureza</p>
+        </div>
+
+        <!-- Content -->
+        <div class="p-6 mt-4">
+            <!-- Search Box (Si el cliente no llega por QR) -->
+            <div id="searchSection" class="mb-6 hidden bg-gray-50 p-6 rounded-xl border border-gray-200">
+                <h2 class="text-lg font-bold text-gray-800 mb-2">Verificar un Producto</h2>
+                <p class="text-sm text-gray-500 mb-4">Ingresa el ID del lote impreso en el empaque para rastrear su origen.</p>
+                <input type="number" id="searchId" class="w-full border-2 border-gray-300 rounded-lg p-3 text-gray-700 focus:border-emerald-500 outline-none" placeholder="ID del Lote (Ej: 1)">
+                <button onclick="searchBatch()" class="w-full mt-4 bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 transition shadow-lg shadow-emerald-200">Rastrear Producto</button>
+            </div>
+
+            <!-- Product Info -->
+            <div id="productInfo" class="hidden mb-8 bg-emerald-50 border-2 border-emerald-200 p-5 rounded-xl shadow-sm">
+                <h2 class="text-2xl font-black text-emerald-900" id="productNameTitle">Cargando...</h2>
+                <p class="text-md text-emerald-700 font-mono mt-1 font-bold" id="batchNumberText"></p>
+                <div class="mt-4 inline-block px-4 py-2 bg-emerald-100 text-emerald-800 text-xs font-black rounded-full border border-emerald-300 shadow-sm flex items-center w-max">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                    CERTIFICACIÓN HALAL VÁLIDA
+                </div>
+            </div>
+
+            <!-- Timeline -->
+            <div id="timelineSection" class="hidden">
+                <h3 class="text-gray-400 font-bold text-sm uppercase tracking-widest mb-6 ml-2">Historial Logístico</h3>
+                <div class="relative border-l-2 border-emerald-200 ml-4 mt-2" id="timelineContainer">
+                    <!-- Los Checkpoints aparecerán aquí dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Error -->
+            <div id="errorMessage" class="hidden text-center text-red-500 mt-10 p-4 bg-red-50 rounded-xl border border-red-100">
+                <p class="font-bold">⚠️ No se encontró información para este lote.</p>
+                <p class="text-sm mt-2 text-red-400">Verifique el número e intente de nuevo.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+
+        async function searchBatch() {
+            const id = document.getElementById('searchId').value;
+            if(id) window.location.href = `?batchId=${id}`;
+        }
+
+        async function loadData() {
+            // Leer el ?batchId=1 de la URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const batchId = urlParams.get('batchId');
+
+            // Si no hay ID, mostramos el buscador
+            if (!batchId) {
+                document.getElementById('searchSection').classList.remove('hidden');
+                return;
+            }
+
+            try {
+                // Hacer petición GET a nuestra API de C#
+                const response = await fetch(`${API_URL}/batches/${batchId}`);
+                if (!response.ok) throw new Error("Lote no encontrado");
+                
+                const batch = await response.json();
+                
+                // Mostrar secciones
+                document.getElementById('searchSection').classList.add('hidden');
+                document.getElementById('productInfo').classList.remove('hidden');
+                document.getElementById('timelineSection').classList.remove('hidden');
+                
+                // Llenar datos del producto
+                document.getElementById('productNameTitle').innerText = batch.productName;
+                document.getElementById('batchNumberText').innerText = `SKU: ${batch.batchNumber}`;
+
+                // Renderizar Línea de Tiempo
+                const container = document.getElementById('timelineContainer');
+                container.innerHTML = '';
+                
+                if (batch.checkpoints && batch.checkpoints.length > 0) {
+                    // Invertimos para mostrar el paso más reciente arriba
+                    const reversedCheckpoints = [...batch.checkpoints].reverse();
+                    
+                    reversedCheckpoints.forEach((cp, index) => {
+                        // Formatear Fecha
+                        const date = new Date(cp.timestamp).toLocaleString('es-ES', { 
+                            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' 
+                        });
+                        
+                        // Diseño dinámico: El último paso tiene colores más fuertes
+                        const isLatest = index === 0;
+                        const dotClass = isLatest ? 'bg-emerald-500 w-5 h-5 -left-[11px]' : 'bg-gray-300 w-4 h-4 -left-[9px]';
+                        const textClass = isLatest ? 'text-gray-900 font-extrabold text-lg' : 'text-gray-500 font-bold text-md';
+                        const locationClass = isLatest ? 'text-emerald-700 font-semibold' : 'text-gray-400';
+                        
+                        container.innerHTML += `
+                            <div class="mb-8 ml-8 relative">
+                                <span class="absolute top-1 ${dotClass} rounded-full border-4 border-white shadow-sm transition-all"></span>
+                                <h4 class="${textClass}">${cp.status}</h4>
+                                <p class="text-sm mt-1 flex items-center ${locationClass}">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    ${cp.location}
+                                </p>
+                                ${cp.transportId ? `<p class="text-xs text-gray-500 mt-1 ml-5 font-mono">Transporte: ${cp.transportId}</p>` : ''}
+                                <p class="text-xs text-gray-400 mt-1 ml-5">${date}</p>
+                            </div>
+                        `;
+                    });
+                } else {
+                    container.innerHTML = '<p class="text-sm text-gray-500 ml-4 font-medium">Esperando actualizaciones logísticas...</p>';
+                }
+
+            } catch (error) {
+                document.getElementById('errorMessage').classList.remove('hidden');
+            }
+        }
+
+        // Ejecutar al cargar la página
+        loadData();
+    </script>
+</body>
+</html>

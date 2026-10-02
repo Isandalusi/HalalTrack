@@ -1,0 +1,24 @@
+# ====================
+# Archivos Secretos y Base de Datos (¡NUNCA SUBIR A GITHUB!)
+# ====================
+.env
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+
+# ====================
+# .NET / C#
+# ====================
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Dd]ebug/
+[Rr]elease/
+
+# ====================
+# Archivos del Sistema Operativo
+# ====================
+.DS_Store
+Thumbs.db
